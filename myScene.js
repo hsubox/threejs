@@ -3,6 +3,25 @@ var mouseY = 0;
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 
+// audio input (microphone)
+window.AudioContext = window.AudioContext || window.webkitAudioContext;
+var context = new AudioContext();
+var analyser = context.createAnalyser();
+analyser.minDecibels = -90;
+analyser.maxDecibels = -10;
+analyser.smoothingTimeConstant = 0.3;
+analyser.fftSize = 1024;
+navigator.getUserMedia({audio: true}, function(stream) {
+  var microphone = context.createMediaStreamSource(stream);
+  var filter = context.createBiquadFilter();
+  // microphone -> filter -> destination.
+  microphone.connect(analyser);
+  analyser.connect(filter);
+  filter.connect(context.destination);
+}, function(error) {
+  console.log("Error: " + error);
+});
+
 // scene
 var scene = new THREE.Scene;
 var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -20,7 +39,8 @@ light2.position.set(300, 1000, 0);
 scene.add(light2);
 
 // face
-var obj;
+// fallback on sphere
+var obj = new THREE.Mesh(new THREE.IcosahedronGeometry(10, 1), new THREE.MeshPhongMaterial());
 var mtlLoader = new THREE.MTLLoader();
 var url = "Batman_mask.mtl";
 mtlLoader.load(url, function(material) {
@@ -35,6 +55,18 @@ mtlLoader.load(url, function(material) {
     });
 });
 
+// mouth
+var lipTop = new THREE.Mesh(new THREE.TorusGeometry(6, 2), new THREE.MeshPhongMaterial());
+lipTop.rotation.x = Math.PI / 3;
+lipTop.position.z = -2;
+lipTop.position.y = -6;
+scene.add(lipTop);
+var lipBottom = new THREE.Mesh(new THREE.TorusGeometry(6, 2), new THREE.MeshPhongMaterial());
+lipBottom.rotation.x = 2 * Math.PI / 3;
+lipBottom.position.z = -2;
+lipBottom.position.y = -6;
+scene.add(lipBottom);
+
 document.addEventListener('mousemove', onDocumentMouseMove, false);
 
 function onDocumentMouseMove( event ) {
@@ -47,6 +79,13 @@ function render() {
 
   obj.rotation.x = Math.atan(mouseY);
 	obj.rotation.y = Math.atan(mouseX);
+
+  var array =  new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(array);
+  var volume = array.reduce((a, b) => a + b, 0)/array.length;
+
+  lipTop.rotation.x = Math.PI / 2 + 0.2 + (volume / 30);
+  lipBottom.rotation.x = Math.PI / 2 - 0.2 - (volume / 30);
 
   renderer.render(scene, camera);
 }
