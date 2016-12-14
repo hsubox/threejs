@@ -3,19 +3,6 @@ var mouseY = 0;
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 
-// http://stackoverflow.com/questions/22312841/waveshaper-node-in-webaudio-how-to-emulate-distortion
-function makeDistortionCurve(amount) {
-  var k = typeof amount === 'number' ? amount : 50;
-  var n_samples = 44100;
-  var curve = new Float32Array(n_samples);
-  var deg = Math.PI / 180;
-  for (var i = 0; i < n_samples; i++) {
-    var x = i * 2 / n_samples - 1;
-    curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
-  }
-  return curve;
-}
-
 // https://github.com/urtzurd/html-audio/blob/gh-pages/static/js/pitch-shifter.js
 function hannWindow(length) {
   var window = new Float32Array(length);
@@ -33,15 +20,13 @@ function linearInterpolation(a, b, t) {
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var context = new AudioContext();
 var filter = context.createBiquadFilter();
-var distortion = context.createWaveShaper();
-  distortion.curve = makeDistortionCurve(100);
 var grainSize = 1024;
-var pitchRatio = 0.5;
+var pitchRatio = 0.9;
 var overlapRatio = 0.50;
-var pitchShifterProcessor = context.createScriptProcessor(grainSize, 1, 1);
-  pitchShifterProcessor.buffer = new Float32Array(grainSize * 2);
-  pitchShifterProcessor.grainWindow = hannWindow(grainSize);
-  pitchShifterProcessor.onaudioprocess = function(event) {
+var pitchShifter = context.createScriptProcessor(grainSize, 1, 1);
+  pitchShifter.buffer = new Float32Array(grainSize * 2);
+  pitchShifter.grainWindow = hannWindow(grainSize);
+  pitchShifter.onaudioprocess = function(event) {
     var inputData = event.inputBuffer.getChannelData(0);
     var outputData = event.outputBuffer.getChannelData(0);
     for (i = 0; i < inputData.length; i++) {
@@ -71,19 +56,21 @@ var pitchShifterProcessor = context.createScriptProcessor(grainSize, 1, 1);
         outputData[i] = this.buffer[i];
     }
   };
+var myDelay = context.createDelay(5.0);
+  myDelay.delayTime.value = 5.0;
 var analyser = context.createAnalyser();
-  analyser.minDecibels = -70;
-  analyser.maxDecibels = -50;
+  analyser.minDecibels = -80;
+  analyser.maxDecibels = -60;
   analyser.fftSize = 1024;
-  analyser.smoothingTimeConstant = 0.3;
+  analyser.smoothingTimeConstant = 0.2;
 
 navigator.getUserMedia({audio: true}, function(stream) {
   var microphone = context.createMediaStreamSource(stream);
-  // microphone -> filter -> analyser -> destination.
+  // microphone -> filter -> pitchShifter -> myDelay -> analyser -> destination.
   microphone.connect(filter);
-  filter.connect(distortion);
-  distortion.connect(pitchShifterProcessor);
-  pitchShifterProcessor.connect(analyser)
+  filter.connect(pitchShifter);
+  pitchShifter.connect(myDelay);
+  myDelay.connect(analyser)
   analyser.connect(context.destination);
 }, function(error) {
   console.log("Error: " + error);
@@ -127,11 +114,11 @@ mtlLoader.load(url, function(material) {
       scene.add(head);
 
       // render lips onto object
-      lipTop = new THREE.Mesh(new THREE.TorusGeometry(70, 20), new THREE.MeshPhongMaterial());
+      lipTop = new THREE.Mesh(new THREE.TorusGeometry(70, 20, 7, 6, Math.PI), new THREE.MeshPhongMaterial());
       lipTop.position.z = -25;
       lipTop.position.y = 40;
       head.add(lipTop);
-      lipBottom = new THREE.Mesh(new THREE.TorusGeometry(70, 18), new THREE.MeshPhongMaterial());
+      lipBottom = new THREE.Mesh(new THREE.TorusGeometry(70, 18, 7, 6, Math.PI), new THREE.MeshPhongMaterial());
       lipBottom.position.z = -25;
       lipBottom.position.y = 40;
       head.add(lipBottom);
