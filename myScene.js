@@ -3,21 +3,38 @@ var mouseY = 0;
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 
+// http://stackoverflow.com/questions/22312841/waveshaper-node-in-webaudio-how-to-emulate-distortion
+function makeDistortionCurve(amount) {
+  var k = typeof amount === 'number' ? amount : 50;
+  var n_samples = 44100;
+  var curve = new Float32Array(n_samples);
+  var deg = Math.PI / 180;
+  for (var i = 0; i < n_samples; i++) {
+    var x = i * 2 / n_samples - 1;
+    curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
 // audio transformations
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var context = new AudioContext();
 var filter = context.createBiquadFilter();
+var distortion = context.createWaveShaper();
+distortion.curve = makeDistortionCurve(100);
 var analyser = context.createAnalyser();
-  analyser.minDecibels = -90;
-  analyser.maxDecibels = -10;
-  analyser.smoothingTimeConstant = 0.3;
+  analyser.minDecibels = -70;
+  analyser.maxDecibels = -50;
   analyser.fftSize = 1024;
+  analyser.smoothingTimeConstant = 0.3;
+
 navigator.getUserMedia({audio: true}, function(stream) {
   var microphone = context.createMediaStreamSource(stream);
   // microphone -> filter -> analyser -> destination.
   microphone.connect(filter);
-  filter.connect(analyser);
-  filter.connect(context.destination);
+  filter.connect(distortion);
+  distortion.connect(analyser);
+  analyser.connect(context.destination);
 }, function(error) {
   console.log("Error: " + error);
 });
