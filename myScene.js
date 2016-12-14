@@ -40,7 +40,9 @@ scene.add(light2);
 
 // face
 // fallback on sphere
-var obj = new THREE.Mesh(new THREE.IcosahedronGeometry(10, 1), new THREE.MeshPhongMaterial());
+var obj = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshPhongMaterial());
+var lipTop = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshPhongMaterial());
+var lipBottom = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshPhongMaterial());
 var mtlLoader = new THREE.MTLLoader();
 var url = "Batman_mask.mtl";
 mtlLoader.load(url, function(material) {
@@ -48,24 +50,21 @@ mtlLoader.load(url, function(material) {
     var objLoader = new THREE.OBJLoader();
     objLoader.setMaterials(material);
     objLoader.load("Batman_mask.obj", function(object) {
-      object.scale.set(0.1, 0.1, 0.1);
-      object.position.set(0, -10, 0);
       obj = object;
       scene.add(obj);
+      // mouth
+      lipTop = new THREE.Mesh(new THREE.TorusGeometry(70, 20), new THREE.MeshPhongMaterial());
+      lipBottom = new THREE.Mesh(new THREE.TorusGeometry(70, 18), new THREE.MeshPhongMaterial());
+      lipTop.position.z = -25;
+      lipTop.position.y = 40;
+      obj.add(lipTop);
+      lipBottom.position.z = -25;
+      lipBottom.position.y = 40;
+      obj.add(lipBottom);
+      object.scale.set(0.1, 0.1, 0.1);
+      object.position.set(0, -10, 0);
     });
 });
-
-// mouth
-var lipTop = new THREE.Mesh(new THREE.TorusGeometry(6, 2), new THREE.MeshPhongMaterial());
-lipTop.rotation.x = Math.PI / 3;
-lipTop.position.z = -2;
-lipTop.position.y = -6;
-scene.add(lipTop);
-var lipBottom = new THREE.Mesh(new THREE.TorusGeometry(6, 2), new THREE.MeshPhongMaterial());
-lipBottom.rotation.x = 2 * Math.PI / 3;
-lipBottom.position.z = -2;
-lipBottom.position.y = -6;
-scene.add(lipBottom);
 
 document.addEventListener('mousemove', onDocumentMouseMove, false);
 
@@ -84,8 +83,8 @@ function render() {
   analyser.getByteFrequencyData(array);
   var volume = array.reduce((a, b) => a + b, 0)/array.length;
 
-  lipTop.rotation.x = Math.PI / 2 + 0.2 + (volume / 30);
-  lipBottom.rotation.x = Math.PI / 2 - 0.2 - (volume / 30);
+  lipTop.rotation.x = Math.PI / 2 - Math.atan(0.3 + (volume / 50));
+  lipBottom.rotation.x = Math.PI / 2 + Math.atan(0.3 + (volume / 50));
 
   renderer.render(scene, camera);
 }
