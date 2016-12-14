@@ -3,20 +3,20 @@ var mouseY = 0;
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 
-// audio input (microphone)
+// audio transformations
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var context = new AudioContext();
+var filter = context.createBiquadFilter();
 var analyser = context.createAnalyser();
-analyser.minDecibels = -90;
-analyser.maxDecibels = -10;
-analyser.smoothingTimeConstant = 0.3;
-analyser.fftSize = 1024;
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -10;
+  analyser.smoothingTimeConstant = 0.3;
+  analyser.fftSize = 1024;
 navigator.getUserMedia({audio: true}, function(stream) {
   var microphone = context.createMediaStreamSource(stream);
-  var filter = context.createBiquadFilter();
-  // microphone -> filter -> destination.
-  microphone.connect(analyser);
-  analyser.connect(filter);
+  // microphone -> filter -> analyser -> destination.
+  microphone.connect(filter);
+  filter.connect(analyser);
   filter.connect(context.destination);
 }, function(error) {
   console.log("Error: " + error);
@@ -39,50 +39,61 @@ light2.position.set(300, 1000, 0);
 scene.add(light2);
 
 // face
-// fallback on sphere
-var obj = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshPhongMaterial());
-var lipTop = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshPhongMaterial());
-var lipBottom = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshPhongMaterial());
+
+// fallback on spheres
+const obj = new THREE.Mesh(new THREE.SphereGeometry(1), new THREE.MeshPhongMaterial());
+var head = new Object(obj);
+var lipTop = new Object(obj);
+var lipBottom = new Object(obj);
+
+// material loader
 var mtlLoader = new THREE.MTLLoader();
 var url = "Batman_mask.mtl";
 mtlLoader.load(url, function(material) {
     material.preload();
+
+    // object loader
     var objLoader = new THREE.OBJLoader();
     objLoader.setMaterials(material);
     objLoader.load("Batman_mask.obj", function(object) {
-      obj = object;
-      scene.add(obj);
-      // mouth
+      head = object;
+      scene.add(head);
+
+      // render lips onto object
       lipTop = new THREE.Mesh(new THREE.TorusGeometry(70, 20), new THREE.MeshPhongMaterial());
-      lipBottom = new THREE.Mesh(new THREE.TorusGeometry(70, 18), new THREE.MeshPhongMaterial());
       lipTop.position.z = -25;
       lipTop.position.y = 40;
-      obj.add(lipTop);
+      head.add(lipTop);
+      lipBottom = new THREE.Mesh(new THREE.TorusGeometry(70, 18), new THREE.MeshPhongMaterial());
       lipBottom.position.z = -25;
       lipBottom.position.y = 40;
-      obj.add(lipBottom);
-      object.scale.set(0.1, 0.1, 0.1);
-      object.position.set(0, -10, 0);
+      head.add(lipBottom);
+
+      // position head
+      head.scale.set(0.1, 0.1, 0.1);
+      head.position.set(0, -10, 0);
     });
 });
 
+// for mouse tracking
 document.addEventListener('mousemove', onDocumentMouseMove, false);
-
 function onDocumentMouseMove( event ) {
   mouseX = (event.clientX - windowHalfX) / windowHalfX;
   mouseY = (event.clientY - windowHalfY) / windowHalfY;
 }
 
+// runs every frame
 function render() {
   requestAnimationFrame(render);
 
-  obj.rotation.x = Math.atan(mouseY);
-	obj.rotation.y = Math.atan(mouseX);
+  // head looks towards cursor
+  head.rotation.x = Math.atan(mouseY);
+	head.rotation.y = Math.atan(mouseX);
 
+  // lips open to volume level
   var array =  new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(array);
   var volume = array.reduce((a, b) => a + b, 0)/array.length;
-
   lipTop.rotation.x = Math.PI / 2 - Math.atan(0.3 + (volume / 50));
   lipBottom.rotation.x = Math.PI / 2 + Math.atan(0.3 + (volume / 50));
 
