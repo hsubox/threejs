@@ -18,12 +18,12 @@ function linearInterpolation(a, b, t) {
 
 // audio transformations
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
-var context = new AudioContext();
-var filter = context.createBiquadFilter();
+var audioCtx = new AudioContext();
+var filter = audioCtx.createBiquadFilter();
 var grainSize = 1024;
 var pitchRatio = 0.9;
 var overlapRatio = 0.50;
-var pitchShifter = context.createScriptProcessor(grainSize, 1, 1);
+var pitchShifter = audioCtx.createScriptProcessor(grainSize, 1, 1);
   pitchShifter.buffer = new Float32Array(grainSize * 2);
   pitchShifter.grainWindow = hannWindow(grainSize);
   pitchShifter.onaudioprocess = function(event) {
@@ -56,22 +56,22 @@ var pitchShifter = context.createScriptProcessor(grainSize, 1, 1);
         outputData[i] = this.buffer[i];
     }
   };
-var myDelay = context.createDelay(5.0);
+var myDelay = audioCtx.createDelay(5.0);
   myDelay.delayTime.value = 5.0;
-var analyser = context.createAnalyser();
+var analyser = audioCtx.createAnalyser();
   analyser.minDecibels = -80;
   analyser.maxDecibels = -60;
   analyser.fftSize = 1024;
   analyser.smoothingTimeConstant = 0.2;
 
 navigator.getUserMedia({audio: true}, function(stream) {
-  var microphone = context.createMediaStreamSource(stream);
+  var microphone = audioCtx.createMediaStreamSource(stream);
   // microphone -> filter -> pitchShifter -> myDelay -> analyser -> destination.
   microphone.connect(filter);
   filter.connect(pitchShifter);
   pitchShifter.connect(myDelay);
   myDelay.connect(analyser)
-  analyser.connect(context.destination);
+  analyser.connect(audioCtx.destination);
 }, function(error) {
   console.log("Error: " + error);
 });
