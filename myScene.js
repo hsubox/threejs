@@ -16,12 +16,61 @@ function makeDistortionCurve(amount) {
   return curve;
 }
 
+// https://github.com/urtzurd/html-audio/blob/gh-pages/static/js/pitch-shifter.js
+function hannWindow(length) {
+  var window = new Float32Array(length);
+  for (var i = 0; i < length; i++) {
+    window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (length - 1)));
+  }
+  return window;
+};
+
+function linearInterpolation(a, b, t) {
+  return a + (b - a) * t;
+};
+
 // audio transformations
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var context = new AudioContext();
 var filter = context.createBiquadFilter();
 var distortion = context.createWaveShaper();
-distortion.curve = makeDistortionCurve(100);
+  distortion.curve = makeDistortionCurve(100);
+var grainSize = 1024;
+var pitchRatio = 0.5;
+var overlapRatio = 0.50;
+var pitchShifterProcessor = context.createScriptProcessor(grainSize, 1, 1);
+  pitchShifterProcessor.buffer = new Float32Array(grainSize * 2);
+  pitchShifterProcessor.grainWindow = hannWindow(grainSize);
+  pitchShifterProcessor.onaudioprocess = function(event) {
+    var inputData = event.inputBuffer.getChannelData(0);
+    var outputData = event.outputBuffer.getChannelData(0);
+    for (i = 0; i < inputData.length; i++) {
+        // Apply the window to the input buffer
+        inputData[i] *= this.grainWindow[i];
+        // Shift half of the buffer
+        this.buffer[i] = this.buffer[i + grainSize];
+        // Empty the buffer tail
+        this.buffer[i + grainSize] = 0.0;
+    }
+    // Calculate the pitch shifted grain re-sampling and looping the input
+    var grainData = new Float32Array(grainSize * 2);
+    for (var i = 0, j = 0.0; i < grainSize; i++, j += pitchRatio) {
+        var index = Math.floor(j) % grainSize;
+        var a = inputData[index];
+        var b = inputData[(index + 1) % grainSize];
+        grainData[i] += linearInterpolation(a, b, j % 1.0) * this.grainWindow[i];
+    }
+    // Copy the grain multiple times overlapping it
+    for (i = 0; i < grainSize; i += Math.round(grainSize * (1 - overlapRatio))) {
+        for (j = 0; j <= grainSize; j++) {
+            this.buffer[i + j] += grainData[j];
+        }
+    }
+    // Output the first half of the buffer
+    for (i = 0; i < grainSize; i++) {
+        outputData[i] = this.buffer[i];
+    }
+  };
 var analyser = context.createAnalyser();
   analyser.minDecibels = -70;
   analyser.maxDecibels = -50;
@@ -33,7 +82,8 @@ navigator.getUserMedia({audio: true}, function(stream) {
   // microphone -> filter -> analyser -> destination.
   microphone.connect(filter);
   filter.connect(distortion);
-  distortion.connect(analyser);
+  distortion.connect(pitchShifterProcessor);
+  pitchShifterProcessor.connect(analyser)
   analyser.connect(context.destination);
 }, function(error) {
   console.log("Error: " + error);
