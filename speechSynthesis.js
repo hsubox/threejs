@@ -68,6 +68,14 @@ navigator.getUserMedia({audio: true}, function(stream) {
   microphone.connect(filter);
   filter.connect(pitchShifter);
   pitchShifter.connect(analyser);
+
+  var msg = new SpeechSynthesisUtterance('But the Joker cannot win. Gotham needs its true hero. You either die a hero or you live long enough to see yourself become a villain. I can do those things, because I’m not a hero, not like Dent. I killed those people. That’s what I can be. I’m whatever Gotham needs me to be. Call it in. You’ll hunt me. You’ll condemn me. Set the dogs on me. Because that’s what needs to happen. Because sometimes the truth isn’t good enough. Sometimes people deserve more. Sometimes people deserve to have their faith rewarded.');
+  // need to cancel, pause, and resume to delay msg
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.pause();
+  window.speechSynthesis.speak(msg);
+  window.speechSynthesis.getVoices();
+  setTimeout(function() { window.speechSynthesis.resume() }, 3000);
 }, function(error) {
   console.log("Error: " + error);
 });
